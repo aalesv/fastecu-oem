@@ -107,6 +107,7 @@ SOURCES += \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.cpp \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp \
+    mpc5746recc.cpp \
     protocol_select.cpp \
     remote_utility/remote_utility.cpp \
     serial_port/serial_port_actions.cpp \
@@ -170,6 +171,7 @@ HEADERS += \
     modules/tcu/flash_tcu_subaru_denso_sh705x_can.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_can.h \
     modules/tcu/flash_tcu_subaru_hitachi_m32r_kline.h \
+    mpc5746recc.h \
     protocol_select.h \
     remote_utility/remote_utility.h \
     serial_port/qtrohelper.hpp \
