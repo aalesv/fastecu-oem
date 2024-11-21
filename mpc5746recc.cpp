@@ -155,8 +155,8 @@ T MPC5746RECC::QByteArray_toInt(QByteArray array)
     }
     //array length may have changed due to trimming
     len = array.length();
-    int64_t res = (uint8_t)array.at(0);
-    for (int i = 1; i < len; i++)
+    int64_t res = 0;
+    for (int i = 0; i < len; i++)
     {
         res = res << 8;
         res = res | (uint8_t)array.at(i);
