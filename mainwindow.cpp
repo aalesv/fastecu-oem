@@ -2194,7 +2194,11 @@ FLASH_CLASS* MainWindow::connect_signals_and_run_module(FLASH_CLASS *object)
     QObject::connect(object, &FLASH_CLASS::LOG_I, syslogger, &SystemLogger::log_messages);
     QObject::connect(object, &FLASH_CLASS::LOG_D, syslogger, &SystemLogger::log_messages);
 
+    //Disable keepalives when communicating with control unit
+    emit remote_utility->stopKeepalive();
     object->run();
+    //Enable keepalives when idle
+    emit remote_utility->startKeepalive();
     return object;
 }
 

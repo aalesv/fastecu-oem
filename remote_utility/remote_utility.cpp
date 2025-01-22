@@ -20,8 +20,14 @@ RemoteUtility::RemoteUtility(QString peerAddress,
     {
         startOverNetwok();
     }
-    QObject::connect(remote_utility, &RemoteUtilityReplica::stateChanged,
-                        this, &RemoteUtility::utilityRemoteStateChanged);
+    connect(remote_utility, &RemoteUtilityReplica::stateChanged,
+            this, &RemoteUtility::utilityRemoteStateChanged);
+    connect(this, &RemoteUtility::startKeepalive,
+            this, &RemoteUtility::start_keepalive);
+    connect(this, &RemoteUtility::stopKeepalive,
+            this, &RemoteUtility::stop_keepalive);
+    connect(keepalive_timer, &QTimer::timeout,
+            this, &RemoteUtility::send_keepalive);
 }
 
 RemoteUtility::~RemoteUtility()
@@ -78,7 +84,7 @@ void RemoteUtility::ping(QString message)
     QObject::connect(watcher, &QRemoteObjectPendingCallWatcher::finished,
         this, [this](QRemoteObjectPendingCallWatcher* watch)
         {
-            //qDebug() << Q_FUNC_INFO << watch->returnValue().toString();
+            qDebug() << Q_FUNC_INFO << watch->returnValue().toString();
             //Clean to avoid memory leak
             delete watch;
             this->pings_sequently_missed = 0;
@@ -87,7 +93,6 @@ void RemoteUtility::ping(QString message)
 
 void RemoteUtility::start_keepalive(void)
 {
-    connect(keepalive_timer, &QTimer::timeout, this, &RemoteUtility::send_keepalive);
     keepalive_timer->start(keepalive_interval);
 }
 
@@ -121,7 +126,7 @@ void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state,
         qDebug() << "RemoteUtility remote connection established";
         if (!peerAddress.startsWith("local:"))
         {
-            start_keepalive();
+            emit startKeepalive();
             qDebug() << "RemoteUtility keepalive started";
         }
     }
@@ -130,7 +135,7 @@ void RemoteUtility::utilityRemoteStateChanged(QRemoteObjectReplica::State state,
         qDebug() << "RemoteUtility remote connection lost";
         if (keepalive_timer->isActive())
         {
-            stop_keepalive();
+            emit stopKeepalive();
             qDebug() << "RemoteUtility keepalive stopped";
         }
     }
