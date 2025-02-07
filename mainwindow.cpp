@@ -229,15 +229,8 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     netSplashLayout->setAlignment(Qt::AlignCenter);
     QLabel *netSplashLabel = new QLabel(QString("Waiting for peer "+peerAddress+"..."), netSplash);
     netSplashLabel->setAlignment(Qt::AlignCenter);
-    QProgressBar *netSplashProgressBar = new QProgressBar(netSplash);
-    netSplashProgressBar->setAlignment(Qt::AlignCenter);
-    netSplashProgressBar->setMinimum(0);
-    //Number of network connection stages
-    netSplashProgressBar->setMaximum(2);
-    netSplashProgressBar->setValue(0);
     QPushButton *btnCloseApp = new QPushButton("Close app", netSplash);
     netSplashLayout->addWidget(netSplashLabel);
-    netSplashLayout->addWidget(netSplashProgressBar);
     netSplashLayout->addWidget(btnCloseApp);
     //splash->setLayout(layout);
     netSplash->resize(350,50);
@@ -276,16 +269,9 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     timer->start();
 
     serial = new SerialPortActions(peerAddress, peerPassword, nullptr, this);
-    remote_utility = new RemoteUtility(peerAddress, peerPassword, nullptr, this);
     if (!serial->isDirectConnection())
     {
-        netSplashProgressBar->setValue(0);
-        netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");
         serial->waitForSource();
-        netSplashProgressBar->setValue(1);
-        netSplashProgressBar->setFormat("Connecting to utility functions...");
-        remote_utility->waitForSource();
-        netSplashProgressBar->setValue(2);
     }
     external_logger("Connection successfull.");
 
@@ -293,8 +279,6 @@ MainWindow::MainWindow(QString peerAddress, QString peerPassword, QWidget *paren
     netSplash->close();
     timer->deleteLater();
     connect(serial, &SerialPortActions::stateChanged,
-            this, &MainWindow::network_state_changed, Qt::DirectConnection);
-    connect(remote_utility, &RemoteUtility::stateChanged,
             this, &MainWindow::network_state_changed, Qt::DirectConnection);
 
     setSplashScreenProgress("Setting up toolbar...", 10);
@@ -2214,16 +2198,16 @@ FLASH_CLASS* MainWindow::connect_signals_and_run_module(FLASH_CLASS *object)
 void MainWindow::external_logger(QString message)
 {
     qDebug() << Q_FUNC_INFO << message;
-    if (remote_utility->isValid())
-        remote_utility->send_log_window_message(message);
+    if (serial->isValid())
+        serial->send_log_window_message(message);
 }
 
 //External progress bar slot
 void MainWindow::external_logger_set_progressbar_value(int value)
 {
     qDebug() << Q_FUNC_INFO << value;
-    if (remote_utility->isValid())
-        remote_utility->set_progressbar_value(value);
+    if (serial->isValid())
+        serial->set_progressbar_value(value);
 }
 /*
 void MainWindow::logger(QString message, bool timestamp, bool linefeed)

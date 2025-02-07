@@ -164,6 +164,30 @@ private:
 
 private slots:
     void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+
+//Utility functions
+public:
+    QRemoteObjectReplica::State state(void) const;
+    bool isValid(void);
+
+public slots:
+    bool send_log_window_message(QString message);
+    bool set_progressbar_value(int value);
+    void ping(QString message);
+
+private:
+    int keepalive_interval;//Inited in constructor initializer list
+    QTimer *keepalive_timer;
+    int pings_sequently_missed = 0;
+    int pings_sequently_missed_limit;//Inited in constructor initializer list
+
+    void start_keepalive(void);
+    void stop_keepalive(void);
+    void send_keepalive(void);
+
+private slots:
+    void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+
 };
 
 #endif // SERIAL_PORT_ACTIONS_H

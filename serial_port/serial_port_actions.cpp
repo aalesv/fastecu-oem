@@ -16,6 +16,9 @@ SerialPortActions::SerialPortActions(QString peerAddress,
     , serial_direct(nullptr)
     , serial_remote(nullptr)
     , heartbeatInterval(0)
+    , keepalive_timer(new QTimer(this))
+    , keepalive_interval(7000)
+    , pings_sequently_missed_limit(5)
 {
     if (isDirectConnection())
         serial_direct = new SerialPortActionsDirect(this);
@@ -108,9 +111,23 @@ void SerialPortActions::serialRemoteStateChanged(QRemoteObjectReplica::State sta
 {
     emit stateChanged(state, oldState);
     if (state == QRemoteObjectReplica::Valid)
-        qDebug() << "SerialPortActions remote connection established";
+    {
+        qDebug() << "RemoteUtility remote connection established";
+        if (!peerAddress.startsWith("local:"))
+        {
+            start_keepalive();
+            qDebug() << "RemoteUtility keepalive started";
+        }
+    }
     else if (oldState == QRemoteObjectReplica::Valid)
-        qDebug() << "SerialPortActions remote connection lost";
+    {
+        qDebug() << "RemoteUtility remote connection lost";
+        if (keepalive_timer->isActive())
+        {
+            stop_keepalive();
+            qDebug() << "RemoteUtility keepalive stopped";
+        }
+    }
 }
 
 bool SerialPortActions::get_serialPortAvailable(void)
@@ -924,3 +941,65 @@ QString SerialPortActions::open_serial_port()
     else
         return qtrohelper::slot_sync(serial_remote->open_serial_port());
 }
+
+//Utility functions
+bool SerialPortActions::send_log_window_message(QString message)
+{
+    return qtrohelper::slot_sync(serial_remote->send_log_window_message(message));
+}
+
+bool SerialPortActions::set_progressbar_value(int value)
+{
+    return qtrohelper::slot_sync(serial_remote->set_progressbar_value(value));
+}
+
+QRemoteObjectReplica::State SerialPortActions::state(void) const
+{
+    return serial_remote->state();
+}
+
+void SerialPortActions::ping(QString message)
+{
+    //Using pointer because of async response
+    QRemoteObjectPendingCallWatcher *watcher =
+        new QRemoteObjectPendingCallWatcher(serial_remote->ping(message));
+    QObject::connect(watcher, &QRemoteObjectPendingCallWatcher::finished,
+                     this, [this](QRemoteObjectPendingCallWatcher* watch)
+                     {
+                         qDebug() << Q_FUNC_INFO << watch->returnValue().toString();
+                         //Clean to avoid memory leak
+                         delete watch;
+                         this->pings_sequently_missed = 0;
+                     }, Qt::QueuedConnection);
+}
+
+void SerialPortActions::start_keepalive(void)
+{
+    connect(keepalive_timer, &QTimer::timeout, this, &SerialPortActions::send_keepalive);
+    keepalive_timer->start(keepalive_interval);
+}
+
+void SerialPortActions::send_keepalive(void)
+{
+    if (pings_sequently_missed == pings_sequently_missed_limit)
+    {
+        qDebug() << "Missed keepalives limit exceeded. Assume the client is disconnected.";
+        emit stateChanged(QRemoteObjectReplica::Suspect, serial_remote->state());
+    }
+
+    ping("ping");
+    pings_sequently_missed++;
+}
+
+void SerialPortActions::stop_keepalive(void)
+{
+    keepalive_timer->stop();
+}
+
+bool SerialPortActions::isValid(void)
+{
+    return serial_remote->state() == QRemoteObjectReplica::Valid;
+}
+
+void SerialPortActions::utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
+{}
