@@ -95,6 +95,7 @@ template <template <typename> typename QRemoteObjectPendingReply, typename RET_T
 RET_TYPE slot_sync(QRemoteObjectPendingReply<RET_TYPE> SLOT)
 {
     bool error;
+    int retry_count = 0;
     QVariant r;
     do {
         QScopedPointer<QRemoteObjectPendingCallWatcher>
@@ -107,8 +108,13 @@ RET_TYPE slot_sync(QRemoteObjectPendingReply<RET_TYPE> SLOT)
         watcher->waitForFinished();
         error = watcher->error();
         if (error)
-            qDebug() << "Remote call finished with error";
+        {
+            qDebug() << "Remote call finished with error, retrying...";
+            retry_count++;
+        }
     } while (error);
+    if (retry_count > 0)
+        qDebug() << "Call successfuly finished after" << retry_count << "attempts";
     return qvariant_to_scalar<RET_TYPE>(r);
 }
 
