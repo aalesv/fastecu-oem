@@ -6,6 +6,7 @@
 #define QTROHELPER_HPP
 
 #include <QRemoteObjectPendingCallWatcher>
+#include <QDebug>
 
 namespace qtrohelper
 {
@@ -93,15 +94,21 @@ inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
 template <template <typename> typename QRemoteObjectPendingReply, typename RET_TYPE>
 RET_TYPE slot_sync(QRemoteObjectPendingReply<RET_TYPE> SLOT)
 {
+    bool error;
     QVariant r;
-    QScopedPointer<QRemoteObjectPendingCallWatcher>
-        watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
-    QObject::connect(watcher.data(), &QRemoteObjectPendingCallWatcher::finished,
-        watcher.data(), [&](QRemoteObjectPendingCallWatcher* watch)
-        {
-            r = watch->returnValue();
-        }, Qt::DirectConnection);
-    watcher->waitForFinished();
+    do {
+        QScopedPointer<QRemoteObjectPendingCallWatcher>
+            watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
+        QObject::connect(watcher.data(), &QRemoteObjectPendingCallWatcher::finished,
+                         watcher.data(), [&](QRemoteObjectPendingCallWatcher* watch)
+                         {
+                             r = watch->returnValue();
+                         }, Qt::DirectConnection);
+        watcher->waitForFinished();
+        error = watcher->error();
+        if (error)
+            qDebug() << "Remote call finished with error";
+    } while (error);
     return qvariant_to_scalar<RET_TYPE>(r);
 }
 

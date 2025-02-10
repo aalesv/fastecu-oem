@@ -185,9 +185,6 @@ private:
     void stop_keepalive(void);
     void send_keepalive(void);
 
-private slots:
-    void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
-
 };
 
 #endif // SERIAL_PORT_ACTIONS_H

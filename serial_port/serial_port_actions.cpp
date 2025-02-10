@@ -945,11 +945,13 @@ QString SerialPortActions::open_serial_port()
 //Utility functions
 bool SerialPortActions::send_log_window_message(QString message)
 {
+    return true;
     return qtrohelper::slot_sync(serial_remote->send_log_window_message(message));
 }
 
 bool SerialPortActions::set_progressbar_value(int value)
 {
+    return true;
     return qtrohelper::slot_sync(serial_remote->set_progressbar_value(value));
 }
 
@@ -975,8 +977,8 @@ void SerialPortActions::ping(QString message)
 
 void SerialPortActions::start_keepalive(void)
 {
-    connect(keepalive_timer, &QTimer::timeout, this, &SerialPortActions::send_keepalive);
-    keepalive_timer->start(keepalive_interval);
+    //connect(keepalive_timer, &QTimer::timeout, this, &SerialPortActions::send_keepalive);
+    //keepalive_timer->start(keepalive_interval);
 }
 
 void SerialPortActions::send_keepalive(void)
@@ -1000,6 +1002,3 @@ bool SerialPortActions::isValid(void)
 {
     return serial_remote->state() == QRemoteObjectReplica::Valid;
 }
-
-void SerialPortActions::utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
-{}
