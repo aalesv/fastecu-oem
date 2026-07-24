@@ -23,6 +23,88 @@ SerialPortActionsDirect::~SerialPortActionsDirect()
     delete serial;
 }
 
+/*bool SerialPortActionsDirect::transfer_rom(QByteArray rom)
+{
+    transferred_rom = rom;  // Сохраняем переданный ROM. Здесь можно добавить дополнительную логику, если необходимо
+        
+//    int errval;
+
+    uint32_t start_address, end_addr;
+    uint32_t pl_len;
+    uint16_t maxblocks;
+    uint16_t blockctr;
+    uint32_t blockaddr;
+
+    QByteArray output;
+    QByteArray received;
+    QByteArray msg;
+
+    start_address = 0x08fac000;
+    pl_len =  0x3d3f00;
+    maxblocks = pl_len / 256;
+    end_addr = (start_address + (maxblocks * 256)) & 0xFFFFFFFF;
+    uint32_t data_len = end_addr - start_address;
+
+    bool res = true;
+
+    int data_bytes_sent = 0;
+    for (blockctr = 0; blockctr < maxblocks; blockctr++)
+    {
+
+        blockaddr = start_address + blockctr * 256;
+        output.clear();
+//        output.resize(265); //256 + header 9 bytes
+        output[0] = (uint8_t)0x00;
+        output[1] = (uint8_t)0x00;
+        output[2] = (uint8_t)0x07;
+        output[3] = (uint8_t)0xE0;
+        output[4] = (uint8_t)0xB6;
+        output[5] = (uint8_t)(blockaddr >> 24) & 0xFF;
+        output[6] = (uint8_t)(blockaddr >> 16) & 0xFF;
+        output[7] = (uint8_t)(blockaddr >> 8) & 0xFF;
+        output[8] = (uint8_t)blockaddr & 0xFF;
+        //qDebug() << "Data header:" << parse_message_to_hex(output);
+
+        for (int i = 0; i < 256; i++)
+        {
+//            output[i + 9] = (uint8_t)(newdata[i + blockaddr] & 0xFF);
+            output[i + 9] = (uint8_t)(rom[i + (blockaddr - 0x08f9c000)] & 0xFF);
+            data_bytes_sent++;
+        }
+        data_len -= 256;
+
+        write_serial_data_echo_check(output);
+        emit LOG_TO_SERVER("Sent: " + parse_message_to_hex(output), true, true);
+//        emit LOG_D("Writing", true, true);
+        //qDebug() << "Kernel data:" << parse_message_to_hex(output);
+        //delay(20);
+        received = read_serial_data(5000);
+        emit LOG_TO_SERVER("Received msg: " + parse_message_to_hex(received), true, true);
+//        send_log_window_message("Writing", true, true);
+
+        if (received.length() > 4)
+        {
+            if ((uint8_t)received.at(3) != 0xE8 || (uint8_t)received.at(4) != 0xF6)
+            {
+//                return STATUS_ERROR;
+        emit LOG_D("Failed", true, true);
+            }
+        }
+        else
+        {
+        emit LOG_D("Failed", true, true);
+//            return STATUS_ERROR;
+        }
+
+        float pleft;
+        pleft = (float)blockctr / (float)maxblocks * 100;
+//        emit SET_PROGRESSBAR_BY_CLIENT(pleft);
+   }
+
+    return res;
+}
+*/
+
 bool SerialPortActionsDirect::is_serial_port_open()
 {
     if (!serial->isOpen()){
@@ -968,11 +1050,8 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
         txmsg.ProtocolID = protocol;
         txmsg.RxStatus = 0;
         txmsg.TxFlags = 0;
-        if (protocol == CAN)
-        {
-            if (is_29_bit_id)
-                txmsg.TxFlags = CAN_29BIT_ID;
-        }
+        if (protocol == CAN || protocol == ISO15765)
+            txmsg.TxFlags = can_id_flag();
         txmsg.TxFlags |= ISO15765_FRAME_PAD;
         txmsg.Timestamp = 0;
         txmsg.DataSize = txMsgLen;
@@ -1275,31 +1354,54 @@ int SerialPortActionsDirect::init_j2534_connection()
     return STATUS_SUCCESS;
 }
 
+unsigned long SerialPortActionsDirect::can_id_flag()
+{
+    /* Returns CAN_29BIT_ID when extended (29-bit) identifiers must be used.
+     * Explicit flag wins; otherwise auto-detect: any ID above the 11-bit
+     * range (0x7FF) can only be carried by an extended identifier.
+     * This keeps 11-bit targets (e.g. FBL 0x7E0/0x7E8) on standard IDs. */
+    if (is_29_bit_id)
+        return CAN_29BIT_ID;
+
+    if (is_iso15765_connection)
+    {
+        if (iso15765_source_address > 0x7FF || iso15765_destination_address > 0x7FF)
+            return CAN_29BIT_ID;
+    }
+    else if (is_can_connection)
+    {
+        if (can_source_address > 0x7FF || can_destination_address > 0x7FF)
+            return CAN_29BIT_ID;
+    }
+
+    return 0;
+}
+
 int SerialPortActionsDirect::set_j2534_can()
 {
     if (is_can_connection)
     {
         emit LOG_D("Set CAN flags", true, true);
         protocol = CAN;
-        if (is_29_bit_id)
-            flags = CAN_29BIT_ID;
-        else
-            flags = 0;
+        flags = can_id_flag();
     }
     else if (is_iso15765_connection)
     {
         emit LOG_D("Set iso15765 flags", true, true);
         protocol = ISO15765;
-        if (is_29_bit_id)
-            flags = CAN_29BIT_ID;
-        else
-            flags = 0;
+        flags = can_id_flag();
     }
-    //Denso DST-i hack
-    if (J2534_is_denso_dsti && protocol == ISO15765)
+    //Denso DST-i hack (must not clear the extended-ID flag: an
+    //11-bit connect would make 29-bit targets unreachable)
+    if (J2534_is_denso_dsti && protocol == ISO15765 && !(flags & CAN_29BIT_ID))
     {
         flags = 0;
     }
+
+    if (flags & CAN_29BIT_ID)
+        emit LOG_D("Using extended 29-bit CAN identifiers", true, true);
+    else
+        emit LOG_D("Using standard 11-bit CAN identifiers", true, true);
     baudrate = can_speed.toUInt();
     // use ISO9141_NO_CHECKSUM to disable checksumming on both tx and rx messages
     if (j2534->PassThruConnect(devID, protocol, flags, baudrate, &chanID))
@@ -1392,7 +1494,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         emit LOG_D("Set iso15765 filters", true, true);
         txmsg.ProtocolID = protocol;
         txmsg.RxStatus = 0;
-        txmsg.TxFlags = ISO15765_FRAME_PAD;
+        txmsg.TxFlags = ISO15765_FRAME_PAD | can_id_flag();
         txmsg.Timestamp = 0;
         txmsg.DataSize = 4;
         txmsg.ExtraDataIndex = 0;
