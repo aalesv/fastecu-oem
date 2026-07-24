@@ -33,7 +33,6 @@ class SerialPortActionsDirect : public QObject
     Q_OBJECT
 
 signals:
-//    void exset_progressbar_value(int value);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
@@ -42,9 +41,6 @@ signals:
 public:
     explicit SerialPortActionsDirect(QObject *parent=nullptr);
     ~SerialPortActionsDirect();
-
-//    bool transfer_rom(QByteArray rom);
-//    void set_progressbar_value(int value);
 
     bool serialPortAvailable = false;
     bool setRequestToSend = true;
@@ -181,7 +177,6 @@ private:
     int unset_j2534_can();
     unsigned long can_id_flag();
     int set_j2534_can_filters();
-    //    int set_j2534_stmin_tx();
     int set_j2534_can_timings();
     int set_j2534_iso9141();
     int set_j2534_iso9141_filters();
@@ -248,18 +243,10 @@ private:
     QByteArray read_j2534_data(unsigned long timeout);
     QString parse_message_to_hex(QByteArray received);
 
-    /*public slots:
-    QStringList check_serial_ports();
-    QString open_serial_port();*/
-
 #ifdef WIN32
     QMap<QString, QString> getAllJ2534DriversNames();
 #endif
     QStringList check_j2534_devices(QMap<QString, QString> installed_drivers);
-
-//signals:
-//    void LOG_TO_SERVER(QString message, bool timestamp, bool linefeed);
-//    void SET_PROGRESSBAR_BY_CLIENT(int value);
 
 private slots:
 
